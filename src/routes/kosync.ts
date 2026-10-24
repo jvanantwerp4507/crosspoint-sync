@@ -355,7 +355,7 @@ export function kosyncRoutes(db: DB, config: Config, refreshProgress: ProgressRe
   const app = new Hono<AppEnv>();
   const auth = authMiddleware(db);
 
-  app.post('/users/create', rateLimiter(config.authRateLimitPerMinute), async (c) => {
+  app.post('/users/create', rateLimiter(config.authRateLimitPerMinute, config.trustProxy), async (c) => {
     if (config.registrationDisabled) {
       return kosyncError(c, 403, 2003, 'Registration is disabled');
     }

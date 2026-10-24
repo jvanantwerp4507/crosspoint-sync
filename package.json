@@ -19,6 +19,7 @@
     "@hono/node-server": "^1.13.7",
     "@xmldom/xmldom": "^0.9.12",
     "hono": "^4.6.16",
+    "undici": "^6.29.1",
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
