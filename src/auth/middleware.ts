@@ -144,15 +144,27 @@ export function sessionOrKeyAuth(db: DB): MiddlewareHandler<AppEnv> {
   };
 }
 
+/**
+ * Resolve the client IP for rate-limiting. X-Forwarded-For / CF-Connecting-IP are
+ * set by the client and only trustworthy behind a proxy we control; honoring them
+ * otherwise lets an attacker rotate the header to defeat the per-IP limit. When
+ * the proxy isn't trusted, key on the real socket address instead.
+ */
+function clientIp(c: Context<AppEnv>, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded =
+      c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim();
+    if (forwarded) return forwarded;
+  }
+  return c.env?.incoming?.socket?.remoteAddress ?? 'unknown';
+}
+
 /** Minimal in-memory per-IP fixed-window rate limiter. */
-export function rateLimiter(limitPerMinute: number): MiddlewareHandler {
+export function rateLimiter(limitPerMinute: number, trustProxy = false): MiddlewareHandler<AppEnv> {
   const hits = new Map<string, { windowStart: number; count: number }>();
   return async (c, next) => {
     if (limitPerMinute <= 0) return next();
-    const ip =
-      c.req.header('cf-connecting-ip') ??
-      c.req.header('x-forwarded-for')?.split(',')[0].trim() ??
-      'unknown';
+    const ip = clientIp(c, trustProxy);
     const now = Date.now();
     const entry = hits.get(ip);
     if (!entry || now - entry.windowStart >= 60_000) {

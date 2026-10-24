@@ -52,7 +52,7 @@ export function authRoutes(db: DB, config: Config): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // Create a master account: pick a handle, receive a login token (shown once).
-  app.post('/signup', rateLimiter(config.authRateLimitPerMinute), async (c) => {
+  app.post('/signup', rateLimiter(config.authRateLimitPerMinute, config.trustProxy), async (c) => {
     if (config.registrationDisabled) {
       return c.json({ error: 'Registration is disabled' }, 403);
     }
@@ -81,7 +81,7 @@ export function authRoutes(db: DB, config: Config): Hono<AppEnv> {
   });
 
   // Web login: paste the master token, get a session cookie.
-  app.post('/login', rateLimiter(config.authRateLimitPerMinute), async (c) => {
+  app.post('/login', rateLimiter(config.authRateLimitPerMinute, config.trustProxy), async (c) => {
     let token: string | null = null;
     try {
       const body = (await c.req.json()) as Record<string, unknown>;
@@ -107,7 +107,7 @@ export function authRoutes(db: DB, config: Config): Hono<AppEnv> {
   // and we log you into the master account that owns it. If the sync account
   // isn't linked to any master yet (e.g. created on a device), we create one and
   // link it, so device-first users get a web account too.
-  app.post('/login-kosync', rateLimiter(config.authRateLimitPerMinute), async (c) => {
+  app.post('/login-kosync', rateLimiter(config.authRateLimitPerMinute, config.trustProxy), async (c) => {
     let username: string | null = null;
     let password: string | null = null;
     try {

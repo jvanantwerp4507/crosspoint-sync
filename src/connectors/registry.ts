@@ -1,4 +1,6 @@
+import { fetch as undiciFetch } from 'undici';
 import type { Connector, HttpTransport } from './types.js';
+import { assertAllowedUrl, ssrfDispatcher } from '../net/ssrf.js';
 import { hardcoverConnector } from './hardcover.js';
 import { readwiseConnector } from './readwise.js';
 import { readwiseReaderConnector } from './readwise-reader.js';
@@ -35,12 +37,20 @@ export function getConnector(id: string): Connector | undefined {
   return byId.get(id);
 }
 
-/** Default transport: the platform fetch, adapted to HttpTransport. */
+/**
+ * Default transport: undici fetch through an SSRF-guarded dispatcher. The URL is
+ * validated (http(s) only, no literal private IPs) and every connection - the
+ * initial request and any redirect hop - is checked at the socket layer against
+ * reserved/private ranges. See src/net/ssrf.ts.
+ */
 export const fetchTransport: HttpTransport = async (url, init) => {
-  const res = await fetch(url, init);
+  assertAllowedUrl(url);
+  const res = await undiciFetch(url, { ...init, dispatcher: ssrfDispatcher() });
   return {
+    // undici's ReadableStream type differs nominally from the DOM lib's; the
+    // runtime stream is the same, so narrow it for the HttpTransport contract.
+    body: res.body as ReadableStream<Uint8Array> | null,
     status: res.status,
-    body: res.body,
     text: () => res.text(),
     json: () => res.json(),
   };
